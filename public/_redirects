@@ -1,0 +1,5 @@
+# Netlify Redirect Rules
+# This ensures that when you refresh a page like /virtual-try-on, 
+# Netlify sends you back to index.html so React can handle the routing.
+
+/*  /index.html  200
