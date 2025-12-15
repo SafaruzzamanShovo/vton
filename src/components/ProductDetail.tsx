@@ -1,32 +1,44 @@
 import React from 'react';
-import { Star, Truck, ShieldCheck, RefreshCcw, MapPin, Minus, Plus, Heart, Share2 } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { Star, Truck, ShieldCheck, RefreshCcw, MapPin, Minus, Plus, Heart, Share2, ArrowLeft, Info, Video, Ruler, UserCheck } from 'lucide-react';
 import VirtualTryOn from './VirtualTryOn';
+import { products } from '../data/products';
+import { getTryOnStatus } from '../utils/garmentRules';
 
 export default function ProductDetail() {
-  // Mock Product Data
-  const product = {
-    id: 1,
-    title: "Premium Cotton Oversized T-Shirt - Urban Streetwear Collection",
-    price: 24.99,
-    originalPrice: 45.00,
-    rating: 4.8,
-    reviews: 124,
-    image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop",
-    colors: ["Black", "White", "Navy"],
-    sizes: ["S", "M", "L", "XL"],
-    description: "Elevate your casual wardrobe with our Premium Cotton Oversized T-Shirt. Crafted from 100% organic cotton, this tee offers breathable comfort and a relaxed fit perfect for everyday wear."
-  };
+  const { id } = useParams<{ id: string }>();
+  const product = products.find(p => p.id === Number(id));
+
+  if (!product) {
+    return (
+      <div className="container mx-auto px-4 py-20 text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Product Not Found</h2>
+        <Link to="/" className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700">
+          Back to Home
+        </Link>
+      </div>
+    );
+  }
+
+  // Get Logic Status
+  const tryOnStatus = getTryOnStatus(product);
 
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-6 flex gap-2">
-        <span>Home</span> / <span>Men's Fashion</span> / <span>T-Shirts</span> / <span className="text-gray-800 font-medium truncate">{product.title}</span>
+      <div className="text-sm text-gray-500 mb-6 flex items-center gap-2">
+        <Link to="/" className="hover:text-orange-600 flex items-center gap-1"><ArrowLeft size={14} /> Back</Link> 
+        <span>/</span> 
+        <span>{product.gender}</span>
+        <span>/</span> 
+        <span>{product.category}</span> 
+        <span>/</span> 
+        <span className="text-gray-800 font-medium truncate">{product.title}</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Images (4 cols) */}
+        {/* Left Column: Images */}
         <div className="lg:col-span-4">
           <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200 mb-4">
             <img src={product.image} alt={product.title} className="w-full h-auto object-cover aspect-[3/4]" />
@@ -40,14 +52,19 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* Middle Column: Details (5 cols) */}
+        {/* Middle Column: Details */}
         <div className="lg:col-span-5">
+          <div className="flex items-center gap-2 mb-1">
+             <span className="text-xs font-bold text-orange-600 uppercase tracking-wide">{product.vendor}</span>
+             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{product.garment_type}</span>
+          </div>
+          
           <h1 className="text-2xl font-medium text-gray-800 leading-tight mb-2">{product.title}</h1>
           
           <div className="flex items-center gap-4 mb-4 text-sm">
             <div className="flex items-center text-yellow-400">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={14} fill={i < 4 ? "currentColor" : "none"} className={i < 4 ? "" : "text-gray-300"} />
+                <Star key={i} size={14} fill={i < Math.floor(product.rating) ? "currentColor" : "none"} className={i < Math.floor(product.rating) ? "" : "text-gray-300"} />
               ))}
               <span className="text-blue-600 ml-2 hover:underline cursor-pointer">{product.reviews} Ratings</span>
             </div>
@@ -59,33 +76,33 @@ export default function ProductDetail() {
             <div className="text-[#f85606] text-3xl font-medium mb-1">${product.price}</div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-gray-400 line-through">${product.originalPrice.toFixed(2)}</span>
-              <span className="text-gray-800 font-medium">-44%</span>
+              <span className="text-gray-800 font-medium">-{Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%</span>
             </div>
           </div>
 
-          {/* Color Selection */}
-          <div className="mb-6">
-            <span className="text-gray-500 text-sm mb-2 block">Color Family</span>
-            <div className="flex gap-3">
-              {product.colors.map((color) => (
-                <button key={color} className="px-3 py-1 border border-gray-200 rounded hover:border-[#f85606] text-sm focus:border-[#f85606] focus:ring-1 focus:ring-[#f85606]">
-                  {color}
-                </button>
-              ))}
+          {/* LOWER GARMENT SPECIFIC: Fit & Size Info */}
+          {product.garment_category === 'Lower' && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <Ruler size={16} className="text-gray-500" />
+                Fit & Sizing
+              </h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500 block text-xs uppercase">Fit Type</span>
+                  <span className="font-medium text-gray-900">{product.fit || 'Regular Fit'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs uppercase">Size Guide</span>
+                  <button className="text-blue-600 hover:underline font-medium">View Chart</button>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500 flex items-center gap-1">
+                <UserCheck size={14} />
+                Model is 6'1" wearing size M
+              </div>
             </div>
-          </div>
-
-          {/* Size Selection */}
-          <div className="mb-6">
-            <span className="text-gray-500 text-sm mb-2 block">Size</span>
-            <div className="flex gap-3">
-              {product.sizes.map((size) => (
-                <button key={size} className="w-10 h-10 flex items-center justify-center border border-gray-200 rounded hover:border-[#f85606] text-sm focus:border-[#f85606] focus:bg-orange-50">
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Quantity & Actions */}
           <div className="flex items-center gap-4 mb-8">
@@ -102,14 +119,60 @@ export default function ProductDetail() {
              </button>
           </div>
 
-          {/* Virtual Try-On Integration */}
+          {/* ======================================================= */}
+          {/* DYNAMIC VIRTUAL TRY-ON SECTION */}
+          {/* ======================================================= */}
           <div className="border-t border-gray-200 pt-6">
-            <VirtualTryOn productImage={product.image} />
+            
+            {/* Case 1: AI Supported (Upper Body) */}
+            {tryOnStatus.supported && tryOnStatus.mode === 'diffusion' && (
+              <VirtualTryOn productImage={product.image} />
+            )}
+
+            {/* Case 2: AR Supported (Accessories) */}
+            {tryOnStatus.supported && tryOnStatus.mode === 'ar' && (
+              <div className="mt-6 p-6 bg-gray-900 rounded-xl text-center text-white relative overflow-hidden group">
+                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                 <Video size={32} className="mx-auto mb-3 text-purple-400" />
+                 <h3 className="text-lg font-bold mb-1">Live AR Preview</h3>
+                 <p className="text-sm text-gray-300 mb-4">{tryOnStatus.message}</p>
+                 <button className="relative z-10 bg-white text-gray-900 px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition-colors">
+                   {tryOnStatus.buttonText}
+                 </button>
+                 <p className="text-[10px] text-gray-500 mt-2">*Requires camera access</p>
+              </div>
+            )}
+
+            {/* Case 3: Not Supported / Restricted */}
+            {!tryOnStatus.supported && (
+              <div className={`mt-6 p-4 border rounded-lg flex items-start gap-3 ${
+                product.garment_category === 'Innerwear' 
+                  ? 'bg-red-50 border-red-100' 
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <Info size={20} className={`mt-0.5 shrink-0 ${
+                  product.garment_category === 'Innerwear' ? 'text-red-400' : 'text-gray-400'
+                }`} />
+                <div>
+                  <h4 className={`text-sm font-semibold ${
+                    product.garment_category === 'Innerwear' ? 'text-red-800' : 'text-gray-700'
+                  }`}>
+                    Virtual Try-On Unavailable
+                  </h4>
+                  <p className={`text-xs mt-1 ${
+                    product.garment_category === 'Innerwear' ? 'text-red-600' : 'text-gray-500'
+                  }`}>
+                    {tryOnStatus.message}
+                  </p>
+                </div>
+              </div>
+            )}
+
           </div>
 
         </div>
 
-        {/* Right Column: Delivery & Service (3 cols) */}
+        {/* Right Column: Delivery & Service */}
         <div className="lg:col-span-3">
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
             <div className="mb-4">
@@ -118,7 +181,6 @@ export default function ProductDetail() {
                 <MapPin size={18} className="text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-gray-800 font-medium">New York, NY 10012</p>
-                  <p className="text-blue-600 text-xs cursor-pointer">CHANGE</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -126,13 +188,10 @@ export default function ProductDetail() {
                 <div>
                   <p className="text-gray-800 font-medium">Standard Delivery</p>
                   <p className="text-gray-500 text-xs">3 - 5 Days</p>
-                  <p className="text-gray-800 font-medium mt-1">$2.00</p>
                 </div>
               </div>
             </div>
-
             <div className="border-t border-gray-200 my-4"></div>
-
             <div className="mb-4">
               <span className="text-gray-500 text-xs uppercase font-semibold tracking-wide block mb-2">Service</span>
               <div className="flex items-start gap-3 mb-3">
@@ -141,38 +200,10 @@ export default function ProductDetail() {
                   <p className="text-gray-800 font-medium">100% Authentic</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 mb-3">
-                <RefreshCcw size={18} className="text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-gray-800 font-medium">14 Days Returns</p>
-                  <p className="text-gray-500 text-xs">Change of mind is not applicable</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-6">
-               <button className="flex-1 flex items-center justify-center gap-2 text-gray-600 bg-white border border-gray-300 py-1.5 rounded hover:bg-gray-50 text-xs">
-                 <Heart size={14} /> Wishlist
-               </button>
-               <button className="flex-1 flex items-center justify-center gap-2 text-gray-600 bg-white border border-gray-300 py-1.5 rounded hover:bg-gray-50 text-xs">
-                 <Share2 size={14} /> Share
-               </button>
             </div>
           </div>
         </div>
 
-      </div>
-      
-      {/* Product Description Section */}
-      <div className="mt-12 bg-gray-50 p-6 rounded-lg border border-gray-200">
-        <h2 className="text-lg font-medium text-gray-800 mb-4">Product Details</h2>
-        <p className="text-gray-600 leading-relaxed">{product.description}</p>
-        <ul className="list-disc list-inside mt-4 text-gray-600 space-y-1">
-           <li>Material: 100% Organic Cotton</li>
-           <li>Fit: Oversized / Relaxed</li>
-           <li>Care: Machine wash cold, tumble dry low</li>
-           <li>Origin: Made in Portugal</li>
-        </ul>
       </div>
     </div>
   );

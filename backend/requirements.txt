@@ -1,4 +1,9 @@
-fastapi
-uvicorn
-python-multipart
-pillow
+fastapi>=0.100.0
+uvicorn>=0.20.0
+python-multipart>=0.0.6
+pillow>=10.0.0
+# Core SOTA AI Client
+gradio_client>=0.8.0
+# Build tools to fix Python 3.13 errors
+setuptools
+wheel

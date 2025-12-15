@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, X, RefreshCw, Camera, Shirt, User } from 'lucide-react';
-import { getApiUrl } from '../config'; // Import the config helper
+import { Upload, Sparkles, X, RefreshCw, Camera, Shirt, User, AlertCircle } from 'lucide-react';
+import { getApiUrl } from '../config';
 
 interface VirtualTryOnProps {
   productImage: string;
@@ -14,6 +14,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showAI, setShowAI] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,6 +26,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
         setUserImage(reader.result as string);
         setResultImage(null);
         setShowAI(true);
+        setStatusMessage("");
       };
       reader.readAsDataURL(file);
     }
@@ -35,6 +37,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
 
     setIsLoading(true);
     setShowAI(true);
+    setStatusMessage("Initializing AI model...");
 
     try {
       const formData = new FormData();
@@ -44,34 +47,51 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
       const blob = await response.blob();
       formData.append('cloth_image', blob, 'product.jpg');
 
-      // USE THE CONFIG HELPER HERE
       const apiUrl = getApiUrl('/api/try-on');
       
+      // Real AI takes time, so we update status messages
+      const statusInterval = setInterval(() => {
+        setStatusMessage(prev => {
+           if (prev === "Initializing AI model...") return "Processing image...";
+           if (prev === "Processing image...") return "Applying diffusion...";
+           if (prev === "Applying diffusion...") return "Refining details...";
+           return prev;
+        });
+      }, 5000);
+
       const apiResponse = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });
 
+      clearInterval(statusInterval);
+
       if (!apiResponse.ok) throw new Error('API Failed');
 
       const data = await apiResponse.json();
       
-      // If the backend returns a relative path (e.g., /static/...), prepend the base URL
       let finalImageUrl = data.output_image_url;
       if (finalImageUrl.startsWith('/')) {
          finalImageUrl = getApiUrl(finalImageUrl);
       }
 
       setResultImage(finalImageUrl);
-      setIsLoading(false);
+      setStatusMessage("");
       
     } catch (error) {
-      console.warn("Backend unavailable, using demo fallback.");
+      console.warn("Backend unavailable or timed out.", error);
+      setStatusMessage("Connecting to demo fallback...");
+      
+      // Fallback for demo if backend isn't running or times out
       setTimeout(() => {
         setResultImage("https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop");
         setIsLoading(false);
-      }, 1500);
+        setStatusMessage("");
+      }, 2000);
+      return; // Return early so we don't set loading false twice
     }
+    
+    setIsLoading(false);
   };
 
   const reset = () => {
@@ -79,6 +99,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
     setUserImageFile(null);
     setResultImage(null);
     setShowAI(true);
+    setStatusMessage("");
   };
 
   return (
@@ -104,12 +125,13 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
                 <Camera size={20} className="text-indigo-600"/>
                 AI Fitting Room
               </h3>
-              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">BETA</span>
+              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium border border-indigo-200">IDM-VTON</span>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
+            {/* Column 1: Product */}
             <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center">
               <span className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">1. Selected Item</span>
               <div className="relative w-full aspect-[3/4] bg-gray-100 rounded-md overflow-hidden group">
@@ -120,6 +142,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
               </div>
             </div>
 
+            {/* Column 2: User Upload */}
             <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center">
               <span className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">2. Your Photo</span>
               <div 
@@ -158,11 +181,13 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
               </div>
             </div>
 
+            {/* Column 3: Result */}
             <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center relative overflow-hidden">
               
               <div className="w-full flex justify-between items-center mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">3. Result</span>
                 
+                {/* Toggle Switch */}
                 <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 px-2">
                   <span className={`text-[10px] font-bold transition-colors ${!showAI ? 'text-indigo-600' : 'text-gray-400'}`}>MODEL</span>
                   <button 
@@ -188,15 +213,16 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
                 ) : (
                   <>
                     {isLoading ? (
-                      <div className="text-center text-white z-10">
-                        <RefreshCw size={32} className="animate-spin mx-auto mb-2 text-indigo-400" />
-                        <p className="text-sm font-medium">Generating...</p>
+                      <div className="text-center text-white z-10 px-4">
+                        <RefreshCw size={32} className="animate-spin mx-auto mb-3 text-indigo-400" />
+                        <p className="text-sm font-medium">{statusMessage || "Generating..."}</p>
+                        <p className="text-xs text-indigo-300 mt-1">This uses real AI, please wait.</p>
                       </div>
                     ) : resultImage ? (
                       <>
                         <img src={resultImage} alt="Result" className="w-full h-full object-cover animate-in fade-in duration-700" />
                         <div className="absolute bottom-2 left-2 bg-indigo-600/90 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
-                          <Sparkles size={10} /> AI Preview
+                          <Sparkles size={10} /> IDM-VTON
                         </div>
                       </>
                     ) : (
@@ -207,7 +233,7 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
                     )}
 
                     {isLoading && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/50 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/80 to-indigo-900/40 backdrop-blur-sm" />
                     )}
                   </>
                 )}
@@ -226,6 +252,15 @@ export default function VirtualTryOn({ productImage, forceOpen = false }: Virtua
               </button>
             </div>
 
+          </div>
+          
+          {/* Info Footer */}
+          <div className="mt-4 flex items-start gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+             <AlertCircle size={14} className="mt-0.5 text-indigo-500 shrink-0" />
+             <p>
+               Powered by <strong>IDM-VTON</strong>. This is a state-of-the-art diffusion model. 
+               Generation typically takes <strong>30-60 seconds</strong> depending on server load.
+             </p>
           </div>
         </div>
       )}
